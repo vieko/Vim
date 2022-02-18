@@ -256,7 +256,7 @@ class Configuration implements IConfiguration {
   easymotionMarkerForegroundColorTwoCharFirst = '#ffb400';
   easymotionMarkerForegroundColorTwoCharSecond = '#b98300';
   easymotionIncSearchForegroundColor = '#7fbf00';
-  easymotionDimColor = '#777777';
+  easymotionDimColor = '#59546d';
   easymotionMarkerWidthPerChar = 8; // Deprecated! No longer needed!
   easymotionDimBackground = true;
   easymotionMarkerFontFamily = 'Consolas'; // Deprecated! No longer needed!
