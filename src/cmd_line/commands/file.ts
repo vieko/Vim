@@ -9,6 +9,7 @@ import {
   bangParser,
   FileCmd,
   fileCmdParser,
+  fileNameParser,
   FileOpt,
   fileOptParser,
 } from '../../vimscript/parserUtils';
@@ -83,33 +84,32 @@ export class FileCommand extends ExCommand {
       bangParser,
       optWhitespace.then(fileOptParser).fallback([]),
       optWhitespace.then(fileCmdParser).fallback(undefined),
-      optWhitespace.then(regexp(/\S+/)).fallback(undefined)
+      optWhitespace.then(fileNameParser).fallback(undefined)
     ).map(([bang, opt, cmd, file]) => new FileCommand({ name: 'edit', bang, opt, cmd, file })),
     enew: bangParser.map((bang) => new FileCommand({ name: 'enew', bang })),
     new: seq(
       optWhitespace.then(fileOptParser).fallback([]),
       optWhitespace.then(fileCmdParser).fallback(undefined),
-      optWhitespace.then(regexp(/\S+/)).fallback(undefined)
+      optWhitespace.then(fileNameParser).fallback(undefined)
     ).map(([opt, cmd, file]) => new FileCommand({ name: 'new', opt, cmd, file })),
     split: seq(
       optWhitespace.then(fileOptParser).fallback([]),
       optWhitespace.then(fileCmdParser).fallback(undefined),
-      optWhitespace.then(regexp(/\S+/)).fallback(undefined)
+      optWhitespace.then(fileNameParser).fallback(undefined)
     ).map(([opt, cmd, file]) => new FileCommand({ name: 'split', opt, cmd, file })),
     vnew: seq(
       optWhitespace.then(fileOptParser).fallback([]),
       optWhitespace.then(fileCmdParser).fallback(undefined),
-      optWhitespace.then(regexp(/\S+/)).fallback(undefined)
+      optWhitespace.then(fileNameParser).fallback(undefined)
     ).map(([opt, cmd, file]) => new FileCommand({ name: 'vnew', opt, cmd, file })),
     vsplit: seq(
       optWhitespace.then(fileOptParser).fallback([]),
       optWhitespace.then(fileCmdParser).fallback(undefined),
-      optWhitespace.then(regexp(/\S+/)).fallback(undefined)
+      optWhitespace.then(fileNameParser).fallback(undefined)
     ).map(([opt, cmd, file]) => new FileCommand({ name: 'vsplit', opt, cmd, file })),
   };
 
   private readonly arguments: IFileCommandArguments;
-  private readonly logger = Logger.get('File');
 
   constructor(args: IFileCommandArguments) {
     super();
@@ -213,7 +213,7 @@ export class FileCommand extends ExCommand {
             // untitled tab
             fileUri = uriPath.with({ scheme: 'untitled' });
           } else {
-            this.logger.error(`${args.file} does not exist.`);
+            Logger.error(`${args.file} does not exist.`);
             return;
           }
         }

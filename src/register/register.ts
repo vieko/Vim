@@ -1,12 +1,4 @@
 import { Clipboard } from './../util/clipboard';
-import {
-  ActionDeleteChar,
-  ActionDeleteCharWithDeleteKey,
-  ActionDeleteLastChar,
-  CommandRegister,
-  CommandYankFullLine,
-} from './../actions/commands/actions';
-import { DeleteOperator, YankOperator } from './../actions/operator';
 import { RecordedState } from './../state/recordedState';
 import { VimState } from './../state/vimState';
 import { readFileAsync, writeFileAsync } from 'platform/fs';
@@ -49,6 +41,7 @@ export class Register {
     '%', // Current file path (relative to workspace root)
     '#', // Previous file path (relative to workspace root)
     '_', // Black hole (always empty)
+    '=', // Expression register
   ];
 
   private static registers: Map<string, IRegisterContent[]>;
@@ -122,7 +115,7 @@ export class Register {
    * Puts the content at the specified index of the multicursor Register.
    * If multicursorIndex === 0, the register will be completely overwritten. Otherwise, just that index will be.
    */
-  private static overwriteRegister(
+  public static overwriteRegister(
     vimState: VimState,
     register: string,
     content: RegisterContent,
@@ -194,32 +187,6 @@ export class Register {
     }
   }
 
-  /** @deprecated Currently used only by tests */
-  public static putByKey(
-    register: string,
-    content: RegisterContent,
-    registerMode = RegisterMode.CharacterWise
-  ): void {
-    if (!Register.isValidRegister(register)) {
-      throw new Error(`Invalid register ${register}`);
-    }
-
-    if (Register.isClipboardRegister(register)) {
-      Clipboard.Copy(content.toString());
-    }
-
-    if (Register.isBlackHoleRegister(register) || Register.isReadOnlyRegister(register)) {
-      return;
-    }
-
-    Register.registers.set(register, [
-      {
-        text: content,
-        registerMode,
-      },
-    ]);
-  }
-
   /**
    * Updates a readonly register's content. This is the only way to do so.
    */
@@ -241,11 +208,14 @@ export class Register {
   private static processNumberedRegisters(vimState: VimState, content: RegisterContent): void {
     // Find the BaseOperator of the current actions
     const baseOperator = vimState.recordedState.operator || vimState.recordedState.command;
+    if (!baseOperator) {
+      return;
+    }
 
-    if (baseOperator instanceof YankOperator || baseOperator instanceof CommandYankFullLine) {
+    if (baseOperator.name === 'yank_op' || baseOperator.name === 'yank_full_line') {
       // 'yank' to 0 only if no register was specified
       const registerCommand = vimState.recordedState.actionsRun.find((value) => {
-        return value instanceof CommandRegister;
+        return value.name === 'cmd_register';
       });
 
       if (!registerCommand) {
@@ -257,10 +227,11 @@ export class Register {
         ]);
       }
     } else if (
-      (baseOperator instanceof DeleteOperator ||
-        baseOperator instanceof ActionDeleteChar ||
-        baseOperator instanceof ActionDeleteLastChar ||
-        baseOperator instanceof ActionDeleteCharWithDeleteKey) &&
+      (baseOperator.name === 'delete_op' ||
+        baseOperator.name === 'delete_char' ||
+        baseOperator.name === 'delete_last_char' ||
+        baseOperator.name === 'delete_char_visual_line_mode' ||
+        baseOperator.name === 'delete_char_with_del') &&
       !(vimState.macro !== undefined || vimState.isReplayingMacro)
     ) {
       if (

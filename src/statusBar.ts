@@ -2,8 +2,8 @@ import * as vscode from 'vscode';
 import { Mode } from './mode/mode';
 import { configuration } from './configuration/configuration';
 import { VimState } from './state/vimState';
-import { Logger } from './util/logger';
 import { VimError } from './error';
+import { Logger } from './util/logger';
 
 class StatusBarImpl implements vscode.Disposable {
   // Displays the current state (mode, recording macro, etc.) and messages to the user
@@ -51,10 +51,12 @@ class StatusBarImpl implements vscode.Disposable {
    * @param isError If true, text rendered in red
    */
   public setText(vimState: VimState, text: string, isError = false) {
-    const hasModeChanged = vimState.currentMode !== this.previousMode;
-
     // Text
-    this.updateText(text);
+    text = text.replace(/\n/g, '^M');
+    if (this.statusBarItem.text !== text) {
+      this.statusBarItem.text = text;
+      Logger.debug(`Status bar: ${text}`);
+    }
 
     // StatusBarItem color
     if (!configuration.statusBarColorControl) {
@@ -67,7 +69,8 @@ class StatusBarImpl implements vscode.Disposable {
     }
 
     // StatusBar color
-    const shouldUpdateColor = configuration.statusBarColorControl && hasModeChanged;
+    const shouldUpdateColor =
+      configuration.statusBarColorControl && vimState.currentMode !== this.previousMode;
     if (shouldUpdateColor) {
       this.updateColor(vimState.currentMode);
     }
@@ -118,15 +121,11 @@ class StatusBarImpl implements vscode.Disposable {
     this.showingDefaultMessage = true;
   }
 
-  private updateText(text: string) {
-    const escaped = text.replace(/\n/g, '^M');
-    this.statusBarItem.text = escaped || '';
-  }
-
   private updateColor(mode: Mode) {
     let foreground: string | undefined;
     let background: string | undefined;
 
+    // @ts-ignore
     const colorToSet = configuration.statusBarColors[Mode[mode].toLowerCase()];
 
     if (colorToSet !== undefined) {
@@ -169,8 +168,7 @@ export function statusBarText(vimState: VimState) {
     vimState.recordedState.actionKeys[vimState.recordedState.actionKeys.length - 1] === '<C-r>'
       ? '"'
       : '|';
-  const logger = Logger.get('StatusBar');
-  switch (vimState.currentMode) {
+  switch (vimState.modeData.mode) {
     case Mode.Normal:
       return '-- NORMAL --';
     case Mode.Insert:
@@ -192,17 +190,9 @@ export function statusBarText(vimState: VimState) {
     case Mode.Disabled:
       return '-- VIM: DISABLED --';
     case Mode.SearchInProgressMode:
-      if (vimState.commandLine === undefined) {
-        logger.warn('vimState.commandLine is undefined in SearchInProgressMode');
-        return '';
-      }
-      return vimState.commandLine.display(cursorChar);
+      return vimState.modeData.commandLine.display(cursorChar);
     case Mode.CommandlineInProgress:
-      if (vimState.commandLine === undefined) {
-        logger.warn('vimState.commandLine is undefined in CommandLineInProgress mode');
-        return '';
-      }
-      return vimState.commandLine.display(cursorChar);
+      return vimState.modeData.commandLine.display(cursorChar);
     default:
       return '';
   }

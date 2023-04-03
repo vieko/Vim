@@ -595,6 +595,14 @@ suite('Mode Visual', () => {
       });
 
       newTest({
+        title: `Can do di${buttonToPress} on a matching bracket from outside bracket`,
+        start: [`| ${start} one ${start} two ${start} three ${end} four ${end} five ${end}`],
+        keysPressed: `di${buttonToPress}`,
+        end: [` ${start}|${end}`],
+        endMode: Mode.Normal,
+      });
+
+      newTest({
         title: `Can do i${buttonToPress} on multiple matching brackets`,
         start: [`${start} one ${start} two ${start} th|ree ${end} four ${end} five ${end}`],
         keysPressed: `vi${buttonToPress}i${buttonToPress}i${buttonToPress}d`,
@@ -630,6 +638,14 @@ suite('Mode Visual', () => {
     });
 
     newTest({
+      title: 'Cannot do vit on a matching tag from outside tag',
+      start: ['|one <blink>hello</blink> two'],
+      keysPressed: 'vitd',
+      end: ['|ne <blink>hello</blink> two'],
+      endMode: Mode.Normal,
+    });
+
+    newTest({
       title:
         'Count-prefixed vit alternates expanding selection between inner and outer tag brackets',
       start: ['<div> one <p> t|wo </p> three </div>'],
@@ -643,6 +659,14 @@ suite('Mode Visual', () => {
       start: ['one <blink>he|llo</blink> two'],
       keysPressed: 'vatd',
       end: ['one | two'],
+      endMode: Mode.Normal,
+    });
+
+    newTest({
+      title: 'Cannot do vat on a matching tag from from outside tag',
+      start: ['|one <blink>hello</blink> two'],
+      keysPressed: 'vatd',
+      end: ['|ne <blink>hello</blink> two'],
       endMode: Mode.Normal,
     });
   });
@@ -696,6 +720,22 @@ suite('Mode Visual', () => {
   });
 
   newTest({
+    title: 'Can do vi) on a matching parenthesis from outside parathesis',
+    start: ['|test(test)'],
+    keysPressed: 'vi)d',
+    end: ['test(|)'],
+    endMode: Mode.Normal,
+  });
+
+  newTest({
+    title: 'Can do vi) on a matching parenthesis from outside parathesis for multiple lines',
+    start: ['|test(test)', 'test(test)'],
+    keysPressed: 'vi)d',
+    end: ['test(|)', 'test(test)'],
+    endMode: Mode.Normal,
+  });
+
+  newTest({
     title: 'Can do vi) on multiple matching parens',
     start: ['test(te(te|st)st)'],
     keysPressed: 'vi)i)d',
@@ -706,6 +746,14 @@ suite('Mode Visual', () => {
   newTest({
     title: 'Can do va) on a matching parenthesis',
     start: ['test(te|st);'],
+    keysPressed: 'va)d',
+    end: ['test|;'],
+    endMode: Mode.Normal,
+  });
+
+  newTest({
+    title: 'Can do va) on a matching parenthesis from outside parenthesis',
+    start: ['|test(test);'],
     keysPressed: 'va)d',
     end: ['test|;'],
     endMode: Mode.Normal,
@@ -864,12 +912,92 @@ suite('Mode Visual', () => {
     endMode: Mode.Normal,
   });
 
-  newTest({
-    title: 'Can do gv to reselect previous selection',
-    start: ['tes|ttest'],
-    keysPressed: 'vl<Esc>llgvd',
-    end: ['tes|est'],
-    endMode: Mode.Normal,
+  suite('`gv` restores previous visual selection', () => {
+    suite('Visual mode', () => {
+      newTest({
+        title: 'Single char',
+        start: ['one t|wo three'],
+        keysPressed: 'v' + '<Esc>' + '0' + 'gv' + 'd',
+        end: ['one t|o three'],
+        endMode: Mode.Normal,
+      });
+
+      newTest({
+        title: 'Forward selection, within line',
+        start: ['one |two three'],
+        keysPressed: 've' + '<Esc>' + '0' + 'gv' + 'd',
+        end: ['one | three'],
+        endMode: Mode.Normal,
+      });
+
+      newTest({
+        title: 'Backward selection, within line',
+        start: ['one tw|o three'],
+        keysPressed: 'vb' + '<Esc>' + '0' + 'gv' + 'd',
+        end: ['one | three'],
+        endMode: Mode.Normal,
+      });
+
+      newTest({
+        title: 'Forward selection, on EOL',
+        start: ['one', 't|wo', 'three'],
+        keysPressed: 'v$' + '<Esc>' + 'gg' + 'gv' + 'd',
+        end: ['one', 't|three'],
+        endMode: Mode.Normal,
+      });
+    });
+
+    suite('VisualLine mode', () => {
+      newTest({
+        title: 'Single line',
+        start: ['one', '|two', 'three'],
+        keysPressed: 'V' + '<Esc>' + 'gg' + 'gv' + 'd',
+        end: ['one', '|three'],
+        endMode: Mode.Normal,
+      });
+
+      newTest({
+        title: 'Forward selection',
+        start: ['one', '|two', 'three', 'four', 'five'],
+        keysPressed: 'Vjj' + '<Esc>' + 'gg' + 'gv' + 'd',
+        end: ['one', '|five'],
+        endMode: Mode.Normal,
+      });
+
+      newTest({
+        title: 'Backward selection',
+        start: ['one', 'two', 'three', '|four', 'five'],
+        keysPressed: 'Vkk' + '<Esc>' + 'gg' + 'gv' + 'd',
+        end: ['one', '|five'],
+        endMode: Mode.Normal,
+      });
+    });
+
+    suite('VisualBlock mode', () => {
+      newTest({
+        title: 'Single char',
+        start: ['one', 't|wo', 'three'],
+        keysPressed: '<C-v>' + '<Esc>' + 'gg' + 'gv' + 'd',
+        end: ['one', 't|o', 'three'],
+        endMode: Mode.Normal,
+      });
+
+      newTest({
+        title: 'Forward selection, 3x3',
+        start: ['abcde', 'b|cdea', 'cdeab', 'deabc', 'eabcd'],
+        keysPressed: '<C-v>jjll' + '<Esc>' + 'gg' + 'gv' + 'd',
+        end: ['abcde', 'b|a', 'cb', 'dc', 'eabcd'],
+        endMode: Mode.Normal,
+      });
+
+      newTest({
+        title: 'Backward selection, 3x3',
+        start: ['abcde', 'bcdea', 'cdeab', 'dea|bc', 'eabcd'],
+        keysPressed: '<C-v>kkhh' + '<Esc>' + 'gg' + 'gv' + 'd',
+        end: ['abcde', 'b|a', 'cb', 'dc', 'eabcd'],
+        endMode: Mode.Normal,
+      });
+    });
   });
 
   suite('D command will remove all selected lines', () => {
@@ -955,6 +1083,14 @@ suite('Mode Visual', () => {
         'public modes = [ModeName.VisualBlock',
         '|public modes = [ModeName.VisualLine',
       ],
+      endMode: Mode.Normal,
+    });
+
+    newTest({
+      title: '`*` escapes `/` properly',
+      start: ['one |two/three four', 'one two/three four'],
+      keysPressed: 'vE*',
+      end: ['one two/three four', 'one |two/three four'],
       endMode: Mode.Normal,
     });
 

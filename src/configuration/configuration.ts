@@ -12,15 +12,16 @@ import {
   IKeyRemapping,
   IModeSpecificStrings,
   IAutoSwitchInputMethod,
-  IDebugConfiguration,
   IHighlightedYankConfiguration,
   ICamelCaseMotionConfiguration,
+  ITargetsConfiguration,
+  Digraph,
 } from './iconfiguration';
 
 import * as packagejson from '../../package.json';
 import { SUPPORT_VIMRC } from 'platform/constants';
 
-// https://stackovrflow.com/questions/51465182/how-to-remove-index-signature-using-mapped-types/51956054#51956054
+// https://stackoverflow.com/questions/51465182/how-to-remove-index-signature-using-mapped-types/51956054#51956054
 type RemoveIndex<T> = {
   [P in keyof T as string extends P ? never : number extends P ? never : P]: T[P];
 };
@@ -48,6 +49,7 @@ export const optionAliases: ReadonlyMap<string, string> = new Map<string, string
   ['rnu', 'relativenumber'],
   ['sc', 'showcmd'],
   ['scr', 'scroll'],
+  ['so', 'scrolloff'],
   ['scs', 'smartcase'],
   ['smd', 'showmode'],
   ['sol', 'startofline'],
@@ -96,8 +98,10 @@ interface IKeyBinding {
  *
  */
 class Configuration implements IConfiguration {
+  [key: string]: any;
+
   private readonly leaderDefault = '\\';
-  private readonly cursorTypeMap = {
+  private readonly cursorTypeMap: { [key: string]: vscode.TextEditorCursorStyle } = {
     line: vscode.TextEditorCursorStyle.Line,
     block: vscode.TextEditorCursorStyle.Block,
     underline: vscode.TextEditorCursorStyle.Underline,
@@ -208,7 +212,7 @@ class Configuration implements IConfiguration {
     this.operatorPendingModeKeyBindingsMap = new Map<string, IKeyRemapping>();
   }
 
-  handleKeys: IHandleKeys[] = [];
+  handleKeys: IHandleKeys = {};
 
   useSystemClipboard = false;
 
@@ -217,8 +221,6 @@ class Configuration implements IConfiguration {
   useCtrlKeys = false;
 
   overrideCopy = true;
-
-  textwidth = 80;
 
   hlsearch = false;
 
@@ -253,19 +255,28 @@ class Configuration implements IConfiguration {
   easymotion = false;
   easymotionMarkerBackgroundColor = '#0000';
   easymotionMarkerForegroundColorOneChar = '#ff0000';
-  easymotionMarkerForegroundColorTwoChar = '#ffa500'; // Deprecated! Use the ones bellow
   easymotionMarkerForegroundColorTwoCharFirst = '#ffb400';
   easymotionMarkerForegroundColorTwoCharSecond = '#b98300';
   easymotionIncSearchForegroundColor = '#7fbf00';
   easymotionDimColor = '#59546d';
-  easymotionMarkerWidthPerChar = 8; // Deprecated! No longer needed!
   easymotionDimBackground = true;
-  easymotionMarkerFontFamily = 'Consolas'; // Deprecated! No longer needed!
-  easymotionMarkerFontSize = '14'; // Deprecated! No longer needed!
   easymotionMarkerFontWeight = 'bold';
-  easymotionMarkerMargin = 0; // Deprecated! No longer needed!
   easymotionKeys = 'hklyuiopnm,qwertzxcvbasdgjf;';
   easymotionJumpToAnywhereRegex = '\\b[A-Za-z0-9]|[A-Za-z0-9]\\b|_.|#.|[a-z][A-Z]';
+
+  targets: ITargetsConfiguration = {
+    enable: false,
+
+    bracketObjects: {
+      enable: true,
+    },
+
+    smartQuotes: {
+      enable: false,
+      breakThroughLines: false,
+      aIncludesSurroundingSpaces: true,
+    },
+  };
 
   autoSwitchInputMethod: IAutoSwitchInputMethod = {
     enable: false,
@@ -301,12 +312,6 @@ class Configuration implements IConfiguration {
     visualline: '#005f87',
     visualblock: '#86592d',
     replace: '#000000',
-  };
-
-  debug: IDebugConfiguration = {
-    silent: false,
-    loggingLevelForAlert: 'error',
-    loggingLevelForConsole: 'error',
   };
 
   searchHighlightColor = '';
@@ -383,6 +388,12 @@ class Configuration implements IConfiguration {
   })
   wrap!: boolean;
 
+  @overlapSetting({
+    settingName: 'cursorSurroundingLines',
+    defaultValue: 0,
+  })
+  scrolloff!: number;
+
   boundKeyCombinations: IKeyBinding[] = [];
 
   visualstar = false;
@@ -405,7 +416,7 @@ class Configuration implements IConfiguration {
     path: '',
   };
 
-  digraphs = {};
+  digraphs: { [shortcut: string]: Digraph } = {};
 
   gdefault = false;
   substituteGlobalFlag = false; // Deprecated in favor of gdefault
@@ -436,6 +447,7 @@ class Configuration implements IConfiguration {
   };
 
   getCursorStyleForMode(modeName: string): vscode.TextEditorCursorStyle | undefined {
+    // @ts-ignore: TODO: this function should take the mode directly
     const cursorStyle = this.cursorStylePerMode[modeName.toLowerCase()];
     if (cursorStyle) {
       return this.cursorStyleFromString(cursorStyle);
@@ -462,11 +474,21 @@ class Configuration implements IConfiguration {
   visualModeKeyBindingsMap: Map<string, IKeyRemapping> = new Map();
   commandLineModeKeyBindingsMap: Map<string, IKeyRemapping> = new Map();
 
-  private static unproxify(obj: object): object {
-    const result = {};
+  get textwidth(): number {
+    const textwidth = this.getConfiguration('vim').get('textwidth', 80);
+
+    if (typeof textwidth !== 'number') {
+      return 80;
+    }
+
+    return textwidth;
+  }
+
+  private static unproxify(obj: { [key: string]: any }): object {
+    const result: { [key: string]: any } = {};
     // tslint:disable-next-line: forin
     for (const key in obj) {
-      const val = obj[key] as any;
+      const val = obj[key];
       if (val !== null && val !== undefined) {
         result[key] = val;
       }
@@ -488,6 +510,7 @@ function overlapSetting(args: {
         // if the value is not defined or empty
         // look at the equivalent `editor` setting
         // if that is not defined then defer to the default value
+        // @ts-ignore
         let val = this['_' + propertyKey];
         if (val !== undefined && val !== '') {
           return val;

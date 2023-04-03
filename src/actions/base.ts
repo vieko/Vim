@@ -1,22 +1,16 @@
 import { Position } from 'vscode';
 import { Cursor } from '../common/motion/cursor';
 import { Notation } from '../configuration/notation';
-import { IBaseAction } from '../state/recordedState';
+import { ActionType, IBaseAction } from './types';
 import { isTextTransformation } from '../transformations/transformations';
 import { configuration } from './../configuration/configuration';
 import { Mode } from './../mode/mode';
 import { VimState } from './../state/vimState';
 
 export abstract class BaseAction implements IBaseAction {
-  /**
-   * Can this action be paired with an operator (is it like w in dw)? All
-   * BaseMovements can be, and some more sophisticated commands also can be.
-   */
-  public readonly isMotion: boolean = false;
+  abstract readonly actionType: ActionType;
 
-  public readonly isOperator: boolean = false;
-  public readonly isCommand: boolean = false;
-  public readonly isNumber: boolean = false;
+  public name = '';
 
   /**
    * If true, the cursor position will be added to the jump list on completion.
@@ -64,9 +58,7 @@ export abstract class BaseAction implements IBaseAction {
   public doesActionApply(vimState: VimState, keysPressed: string[]): boolean {
     if (
       vimState.currentModeIncludingPseudoModes === Mode.OperatorPendingMode &&
-      !this.isMotion &&
-      !this.isOperator &&
-      !this.isNumber
+      this.actionType === 'command'
     ) {
       return false;
     }
@@ -83,9 +75,7 @@ export abstract class BaseAction implements IBaseAction {
   public couldActionApply(vimState: VimState, keysPressed: string[]): boolean {
     if (
       vimState.currentModeIncludingPseudoModes === Mode.OperatorPendingMode &&
-      !this.isMotion &&
-      !this.isOperator &&
-      !this.isNumber
+      this.actionType === 'command'
     ) {
       return false;
     }
@@ -158,7 +148,7 @@ export abstract class BaseAction implements IBaseAction {
  * A command is something like <Esc>, :, v, i, etc.
  */
 export abstract class BaseCommand extends BaseAction {
-  override isCommand = true;
+  override actionType: ActionType = 'command' as const;
 
   /**
    * If isCompleteAction is true, then triggering this command is a complete action -
